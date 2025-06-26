@@ -2,16 +2,20 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quiz de Contorno de Países</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    #map { margin: 0 auto; width: 800px; height: 800px; border: 1px solid #ccc; }
-    svg { viewBox: 0 0 800 800; width:100%; height:100%; preserveAspectRatio:xMidYMid meet; }
-    path { fill:none; stroke:#333; stroke-width:1; stroke-linecap:round; stroke-linejoin:round; shape-rendering:geometricPrecision; }
-    #controls { margin-top:15px; }
-    #controls button, #controls input { padding:6px 12px; font-size:1em; margin-left:5px; }
-    #feedback, #score-display { margin-top:10px; font-weight:bold; }
+    #map { margin: 0 auto; width: 100%; max-width: 800px; height: auto; border: 1px solid #ccc; }
+    svg { width: 100%; height: auto; display: block; }
+    path { fill: none; stroke: #333; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; shape-rendering: geometricPrecision; }
+    #controls { margin-top: 15px; }
+    #controls button, #controls input { padding: 6px 12px; font-size: 1em; margin: 5px 2px; }
+    #feedback, #score-display { margin-top: 10px; font-weight: bold; }
+    @media (max-width: 600px) {
+      #controls input, #controls button { width: 100%; margin-left: 0; }
+    }
   </style>
 </head>
 <body>
@@ -22,8 +26,8 @@
     <button id="submit"    type="button">Enviar</button>
     <button id="stop"      type="button">STOP</button>
     <button id="reveal"    type="button">Revelar</button>
+    <button id="new-map"   type="button" disabled>Próximo</button>
     <button id="reveal-score" type="button">Revelar Acertos</button>
-    <button id="new-map"   type="button" disabled>Novo Mapa</button>
     <div id="feedback"></div>
     <div id="score-display"></div>
   </div>
@@ -31,16 +35,12 @@
   <script>
     const width = 800, height = 800;
     const svg = d3.select('#map').append('svg')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('width', width)
-      .attr('height', height);
+      .attr('viewBox', `0 0 ${width} ${height}`);
 
-    // Projection e path globais
     const projection = d3.geoMercator().scale(1).translate([0,0]);
     const path = d3.geoPath().projection(projection);
 
-    // Lista completa de países
-    const allCountries = [
+    const allCountries = [ 
       "Afeganistão", "Akrotiri Sovereign Base Area", "Albânia", "Alemanha", "Andorra", "Angola",
       "Anguila", "Antártida", "Antígua e Barbuda", "Argentina", "Argélia", "Armênia",
       "Aruba", "Arábia Saudita", "Ashmore and Cartier Islands", "Austrália", "Áustria", "Azerbaijão",
@@ -85,117 +85,103 @@
     let currentCountry, currentPath, attempts, correctCount = 0;
     let worldData = null;
 
-    // Normalização de texto
     function normalize(str) {
-      return str.normalize('NFD').replace(/[̀-\u036f]/g, '').toLowerCase();
+      return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     }
-    // Função para obter nome no GeoJSON
-    function getGeoName(f) {
-      return f.properties.NAME || f.properties.name || f.properties.ADMIN || f.properties.ADMIN_PT || '';
-    }
-
-    // Calcula zoom e centro para a feature
     function zoomFeature(feature) {
-      const b = path.bounds(feature);
-      const dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
-      const x = (b[0][0] + b[1][0]) / 2, y = (b[0][1] + b[1][1]) / 2;
-      const scaleVal = Math.min(width / dx, height / dy) * 0.9;
-      const translate = [width / 2 - scaleVal * x, height / 2 - scaleVal * y];
+      const b = path.bounds(feature),
+            dx = b[1][0]-b[0][0], dy = b[1][1]-b[0][1],
+            x = (b[0][0]+b[1][0])/2, y = (b[0][1]+b[1][1])/2,
+            scaleVal = Math.min(width/dx, height/dy)*0.9,
+            translate = [width/2 - scaleVal*x, height/2 - scaleVal*y];
       projection.scale(scaleVal).translate(translate);
     }
 
-    // Carrega GeoJSON e inicializa
     d3.json('world_ptbr.geojson').then(data => {
       worldData = data;
       initQuiz();
-    });
+    }).catch(console.error);
 
     function initQuiz() {
-      document.getElementById('submit').addEventListener('click', handleGuess);
-      document.getElementById('stop').addEventListener('click', stopAnimation);
-      document.getElementById('reveal').addEventListener('click', revealAnswer);
-      document.getElementById('reveal-score').addEventListener('click', showScore);
-      document.getElementById('new-map').addEventListener('click', startQuiz);
+      const input = document.getElementById('guess');
+      document.getElementById('submit').onclick = handleGuess;
+      document.getElementById('stop').onclick = stopAnimation;
+      document.getElementById('reveal').onclick = revealAnswer;
+      document.getElementById('new-map').onclick = startQuiz;
+      document.getElementById('reveal-score').onclick = showScore;
+      input.addEventListener('keydown', e => { if(e.key==='Enter') handleGuess(); });
       startQuiz();
     }
 
     function startQuiz() {
-      // Reset de projeção para novo mapa
-      projection.scale(1).translate([0,0]);
-
-      // Limpa path anterior se existir
-      if (currentPath) {
-        currentPath.remove();
-        currentPath = null;
-      }
-
-      // Reset de estado
       attempts = 0;
+      if (currentPath) currentPath.remove();
       document.getElementById('guess').value = '';
       document.getElementById('feedback').textContent = '';
       document.getElementById('score-display').textContent = '';
-      ['submit','stop','reveal','reveal-score'].forEach(id => document.getElementById(id).disabled = false);
-      document.getElementById('new-map').disabled = true;
+      ['submit','stop','reveal','reveal-score'].forEach(id=>document.getElementById(id).disabled=false);
+      document.getElementById('new-map').disabled=true;
+      document.getElementById('guess').focus();
 
       if (!worldData) return;
-      if (remaining.length === 0) remaining = [...allCountries];
-      const idx = Math.floor(Math.random() * remaining.length);
+      if (remaining.length===0) remaining=[...allCountries];
+      const idx = Math.floor(Math.random()*remaining.length);
       currentCountry = remaining.splice(idx,1)[0];
 
-      // Encontra feature correspondente
-      const feat = worldData.features.find(f => normalize(getGeoName(f)) === normalize(currentCountry));
-      if (!feat) {
-        console.error('País não encontrado no GeoJSON:', currentCountry);
-        return startQuiz();
-      }
-
-      // Aplica zoom e desenha
+      const feat = worldData.features.find(f=>normalize(f.properties.NAME)===normalize(currentCountry));
+      if(!feat) return startQuiz();
       zoomFeature(feat);
-      currentPath = svg.append('path').datum(feat).attr('d', path);
 
+      currentPath = svg.append('path').datum(feat).attr('d',path);
       const total = currentPath.node().getTotalLength();
-      currentPath
-        .attr('stroke-dasharray', `${total} ${total}`)
-        .attr('stroke-dashoffset', total)
-        .transition().duration(30000).ease(d3.easeLinear)
-        .attr('stroke-dashoffset', 0);
+      currentPath.attr('stroke-dasharray',`${total} ${total}`).attr('stroke-dashoffset',total)
+        .transition().duration(30000).ease(d3.easeLinear).attr('stroke-dashoffset',0);
     }
 
     function stopAnimation() {
-      if (currentPath) currentPath.interrupt();
-      document.getElementById('stop').disabled = true;
+      if(currentPath) currentPath.interrupt();
+      document.getElementById('stop').disabled=true;
     }
 
-    function handleGuess() {
-      const input = document.getElementById('guess').value.trim();
-      if (!input) return;
-      attempts++;
-      if (normalize(input) === normalize(currentCountry)) {
-        correctCount++;
-        document.getElementById('feedback').textContent = `✔️ Correto! É ${currentCountry}.`;
-        prepareNext();
-      } else if (attempts >= 3) {
-        document.getElementById('feedback').textContent = `❌ Errou 3 vezes. Era: ${currentCountry}.`;
-        prepareNext();
-      } else {
-        document.getElementById('feedback').textContent = `❌ Errado (${attempts}/3).`;
+    function completeMap() {
+      if(currentPath) {
+        currentPath.interrupt();
+        currentPath.attr('stroke-dashoffset',0);
       }
     }
 
-    function revealAnswer() {
-      if (currentPath) currentPath.interrupt().attr('stroke-dashoffset', 0);
-      document.getElementById('feedback').textContent = `🔍 Era: ${currentCountry}.`;
+    function handleGuess() {
+      const val = document.getElementById('guess').value.trim();
+      if(!val) return;
+      attempts++;
+      if(normalize(val)===normalize(currentCountry)) {
+        correctCount++;
+        completeMap();
+        document.getElementById('feedback').textContent=`✔️ Correto! É ${currentCountry}.`;
+        prepareNext();
+      } else if(attempts>=3) {
+        completeMap();
+        document.getElementById('feedback').textContent=`❌ Errou 3 vezes. Era: ${currentCountry}.`;
+        prepareNext();
+      } else {
+        document.getElementById('feedback').textContent=`❌ Errado (${attempts}/3).`;
+      }
+    }
+
+    function revealAnswer(){
+      completeMap();
+      document.getElementById('feedback').textContent=`🔍 Era: ${currentCountry}.`;
       prepareNext();
     }
 
-    function showScore() {
-      document.getElementById('score-display').textContent = `🌟 Acertos: ${correctCount}`;
-      document.getElementById('reveal-score').disabled = true;
+    function showScore(){
+      document.getElementById('score-display').textContent=`🌟 Acertos: ${correctCount}`;
+      document.getElementById('reveal-score').disabled=true;
     }
 
-    function prepareNext() {
-      ['submit','stop','reveal'].forEach(id => document.getElementById(id).disabled = true);
-      document.getElementById('new-map').disabled = false;
+    function prepareNext(){
+      ['submit','reveal','stop'].forEach(id=>document.getElementById(id).disabled=true);
+      document.getElementById('new-map').disabled=false;
       document.getElementById('new-map').focus();
     }
   </script>
