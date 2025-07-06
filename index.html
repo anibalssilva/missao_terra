@@ -10,7 +10,9 @@
     svg { viewBox: 0 0 800 800; width:100%; height:100%; preserveAspectRatio:xMidYMid meet; }
     path { fill:none; stroke:#333; stroke-width:1; stroke-linecap:round; stroke-linejoin:round; shape-rendering:geometricPrecision; }
     #controls { margin-top:15px; }
-    #controls button, #controls input { padding:6px 12px; font-size:1em; margin-left:5px; }
+    #controls select,
+    #controls button,
+    #controls input { padding:6px 12px; font-size:1em; margin-left:5px; }
     #feedback, #score-display { margin-top:10px; font-weight:bold; font-size: 1.2em; color: green; }
   </style>
 </head>
@@ -18,12 +20,22 @@
   <h1>Qual país é este GloboGênios?</h1>
   <div id="map"></div>
   <div id="controls">
+    <label for="continent-select">Continente:</label>
+    <select id="continent-select">
+      <option value="Todos">Todos</option>
+      <option value="América do Sul">América do Sul</option>
+      <option value="América do Norte">América do Norte</option>
+      <option value="Europa">Europa</option>
+      <option value="Ásia">Ásia</option>
+      <option value="África">África</option>
+      <option value="Oceania">Oceania</option>
+    </select>
     <input id="guess" placeholder="Digite o país" autocomplete="off" />
-    <button id="submit"    type="button">Enviar</button>
-    <button id="stop"      type="button">STOP</button>
-    <button id="reveal"    type="button">Revelar</button>
+    <button id="submit"       type="button">Enviar</button>
+    <button id="stop"         type="button">STOP</button>
+    <button id="reveal"       type="button">Revelar</button>
     <button id="reveal-score" type="button">Revelar Acertos</button>
-    <button id="new-map"   type="button" disabled>Novo Mapa</button>
+    <button id="new-map"      type="button" disabled>Novo Mapa</button>
     <div id="feedback"></div>
     <div id="score-display"></div>
   </div>
@@ -31,82 +43,57 @@
   <script>
     const width = 800, height = 800;
     const svg = d3.select('#map').append('svg')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('width', width)
-      .attr('height', height);
+      .attr('viewBox', `0 0 ${width} ${height}`);
 
-    // Projection e path globais
     const projection = d3.geoMercator().scale(1).translate([0,0]);
     const path = d3.geoPath().projection(projection);
 
-    // Lista completa de países
-    const allCountries = [
-      "Afeganistão", "Akrotiri Sovereign Base Area", "Albânia", "Alemanha", "Andorra", "Angola",
-      "Anguila", "Antártida", "Antígua e Barbuda", "Argentina", "Argélia", "Armênia",
-      "Aruba", "Arábia Saudita", "Ashmore and Cartier Islands", "Austrália", "Áustria", "Azerbaijão",
-      "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Bélgica", "Belize",
-      "Benim", "Bermudas", "Bielorrússia", "Bolívia", "Bósnia e Herzegovina", "Botswana",
-      "Brasil", "Brunei", "Bulgária", "Burquina Faso", "Burundi", "Butão",
-      "Cabo Verde", "Camarões", "Camboja", "Canadá", "Catar", "Cazaquistão",
-      "Chade", "Chile", "China", "Chipre", "Colômbia", "Comores",
-      "Congo (Brazzaville)", "Congo (Kinshasa)", "Cook Islands", "Coréia do Sul", "Coréia do Norte", "Costa do Marfim",
-      "Costa Rica", "Croácia", "Cuba", "Dinamarca", "Djibuti", "Dominica",
-      "Egito", "El Salvador", "Emirados Árabes Unidos", "Equador", "Eritreia", "Eslováquia",
-      "Eslovênia", "Espanha", "Estados Unidos da América", "Estônia", "Etiópia", "Fiji",
-      "Filipinas", "Finlândia", "França", "Gabão", "Gâmbia", "Gana",
-      "Geórgia", "Gibraltar", "Granada", "Grécia", "Groenlândia", "Guadalupe",
-      "Guam", "Guatemala", "Guernsey", "Guiana", "Guiana Francesa", "Haiti",
-      "Honduras", "Hong Kong", "Hungria", "Ilha Bouvet", "Ilha Christmas", "Ilha Heard e Ilhas McDonald",
-      "Ilhas Caimão", "Ilhas Cook", "Ilhas Feroe", "Ilhas Malvinas", "Ilhas Marshall", "Ilhas Menores Distantes dos EUA",
-      "Ilhas Salomão", "Ilhas Virgens Americanas", "Ilhas Virgens Britânicas", "Ilhas Wallis e Futuna", "Índia", "Indonésia",
-      "Irã", "Iraque", "Irlanda", "Islândia", "Israel", "Itália",
-      "Jamaica", "Japão", "Jersey", "Jordânia", "Kiribati", "Kuwait",
-      "Laos", "Lesoto", "Letônia", "Líbano", "Libéria", "Líbia",
-      "Listenstaine", "Lituânia", "Luxemburgo", "Macau", "Macedônia do Norte", "Madagascar",
-      "Malásia", "Malaui", "Maldivas", "Mali", "Malta", "Marrocos",
-      "Martinica", "Maurício", "Mauritânia", "Mayotte", "México", "Micronésia",
-      "Moçambique", "Moldávia", "Mônaco", "Montenegro", "Montserrat", "Myanmar",
-      "Namíbia", "Nauru", "Nepal", "Nicarágua", "Níger", "Nigéria",
-      "Niue", "Noruega", "Nova Caledônia", "Nova Zelândia", "Omã", "Palau",
-      "Panamá", "Papua Nova Guiné", "Paquistão", "Paraguai", "Peru", "Pitcairn",
-      "Polônia", "Porto Rico", "Portugal", "Quênia", "Quirguistão", "Reino Unido",
-      "República Centro-Africana", "República Dominicana", "República Tcheca", "Romênia", "Ruanda", "Rússia",
-      "Saara Ocidental", "Saint Martin", "Saint-Pierre e Miquelon", "Samoa", "Saudita, Arábia", "Senegal",
-      "Serra Leoa", "Sérvia", "Seychelles", "Singapura", "Sint Maarten", "Síria",
-      "Somália", "Sri Lanka", "Suazilândia", "Sudão", "Sudão do Sul", "Suécia",
-      "Suíça", "Suriname", "Tadjiquistão", "Tailândia", "Taiwan", "Tanzânia",
-      "Território Britânico do Oceano Índico", "Territórios Australianos do Sul", "Timor-Leste", "Togo", "Tokelau", "Tonga",
-      "Trindade e Tobago", "Tristão da Cunha", "Tunísia", "Turcas e Caicos", "Turquemenistão", "Turquia",
-      "Tuvalu", "Ucrânia", "Uganda", "Uruguai", "US Naval Base Guantanamo Bay", "Uzbequistão",
-      "Vanuatu", "Venezuela", "Vietnã", "Zâmbia", "Zimbábue"
+    let worldData, 
+        countryByContinent = {}, 
+        remaining = [], 
+        currentCountry, currentPath, attempts, correctCount = 0;
 
-    ];
-    let remaining = [...allCountries];
-    let currentCountry, currentPath, attempts, correctCount = 0;
-    let worldData = null;
+    // traduções dos continentes do GeoJSON (inglês → português)
+    const contMap = {
+      "South America": "América do Sul",
+      "North America": "América do Norte",
+      "Europe":         "Europa",
+      "Asia":           "Ásia",
+      "Africa":         "África",
+      "Oceania":        "Oceania",
+      // se houver Antártica, etc.
+    };
 
-    // Normalização de texto
     function normalize(str) {
-      return str.normalize('NFD').replace(/[̀-\u036f]/g, '').toLowerCase();
+      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
-    // Função para obter nome no GeoJSON
     function getGeoName(f) {
-      return f.properties.NAME || f.properties.name || f.properties.ADMIN || f.properties.ADMIN_PT || '';
+      return f.properties.NAME ||
+             f.properties.name ||
+             f.properties.ADMIN ||
+             f.properties.ADMIN_PT ||
+             '';
+    }
+    function getGeoContinent(f) {
+      // assume f.properties.CONTINENT em inglês
+      const eng = f.properties.CONTINENT;
+      return contMap[eng] || "Outro";
     }
 
-    // Calcula zoom e centro para a feature
-    function zoomFeature(feature) {
-      const b = path.bounds(feature);
-      const dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
-      const x = (b[0][0] + b[1][0]) / 2, y = (b[0][1] + b[1][1]) / 2;
-      const scaleVal = Math.min(width / dx, height / dy) * 0.9;
-      const translate = [width / 2 - scaleVal * x, height / 2 - scaleVal * y];
-      projection.scale(scaleVal).translate(translate);
-    }
-
-    // Carrega GeoJSON e inicializa
     d3.json('world_ptbr_filtrado.geojson').then(data => {
       worldData = data;
+      // Monta countryByContinent
+      countryByContinent = { "Todos": [] };
+      worldData.features.forEach(f => {
+        const nome = getGeoName(f);
+        const cont = getGeoContinent(f);
+        // adiciona em Todos
+        countryByContinent["Todos"].push(nome);
+        // adiciona em seu continente
+        if (!countryByContinent[cont]) countryByContinent[cont] = [];
+        countryByContinent[cont].push(nome);
+      });
+
       initQuiz();
     });
 
@@ -116,40 +103,45 @@
       document.getElementById('reveal').addEventListener('click', revealAnswer);
       document.getElementById('reveal-score').addEventListener('click', showScore);
       document.getElementById('new-map').addEventListener('click', startQuiz);
+      document.getElementById('continent-select').addEventListener('change', () => {
+        // ao mudar continente, zera placar e recomeça
+        correctCount = 0;
+        document.getElementById('score-display').textContent = '';
+        startQuiz();
+      });
       startQuiz();
     }
 
     function startQuiz() {
-      // Reset de projeção para novo mapa
       projection.scale(1).translate([0,0]);
-
-      // Limpa path anterior se existir
-      if (currentPath) {
-        currentPath.remove();
-        currentPath = null;
-      }
-
-      // Reset de estado
+      if (currentPath) currentPath.remove();
       attempts = 0;
       document.getElementById('guess').value = '';
       document.getElementById('feedback').textContent = '';
-      document.getElementById('score-display').textContent = '';
+      document.getElementById('reveal-score').disabled = false;
       ['submit','stop','reveal','reveal-score'].forEach(id => document.getElementById(id).disabled = false);
       document.getElementById('new-map').disabled = true;
 
-      if (!worldData) return;
-      if (remaining.length === 0) remaining = [...allCountries];
+      const cont = document.getElementById('continent-select').value;
+      const pool = countryByContinent[cont] || [];
+      if (pool.length === 0) {
+        document.getElementById('feedback').textContent = `Nenhum país em "${cont}".`;
+        return;
+      }
+      // repopula remaining se vazio
+      if (remaining.length === 0 || !remainingPool || remainingPoolCont !== cont) {
+        remaining = pool.slice();
+        remainingPoolCont = cont;
+      }
+      // escolhe aleatório
       const idx = Math.floor(Math.random() * remaining.length);
       currentCountry = remaining.splice(idx,1)[0];
 
-      // Encontra feature correspondente
       const feat = worldData.features.find(f => normalize(getGeoName(f)) === normalize(currentCountry));
       if (!feat) {
-        console.error('País não encontrado no GeoJSON:', currentCountry);
+        console.error('Não encontrado:', currentCountry);
         return startQuiz();
       }
-
-      // Aplica zoom e desenha
       zoomFeature(feat);
       currentPath = svg.append('path').datum(feat).attr('d', path);
 
@@ -159,6 +151,15 @@
         .attr('stroke-dashoffset', total)
         .transition().duration(30000).ease(d3.easeLinear)
         .attr('stroke-dashoffset', 0);
+    }
+
+    function zoomFeature(feature) {
+      const b = path.bounds(feature);
+      const dx = b[1][0]-b[0][0], dy = b[1][1]-b[0][1];
+      const x = (b[0][0]+b[1][0])/2, y = (b[0][1]+b[1][1])/2;
+      const scaleVal = Math.min(width/dx, height/dy)*0.9;
+      projection.scale(scaleVal)
+                .translate([width/2 - scaleVal*x, height/2 - scaleVal*y]);
     }
 
     function stopAnimation() {
