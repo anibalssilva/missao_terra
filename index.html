@@ -43,71 +43,98 @@
   <script>
     const width = 800, height = 800;
     const svg = d3.select('#map').append('svg')
-      .attr('viewBox', `0 0 ${width} ${height}`);
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('width', width)
+      .attr('height', height);
 
     const projection = d3.geoMercator().scale(1).translate([0,0]);
     const path = d3.geoPath().projection(projection);
 
-    let worldData, 
-        countryByContinent = {}, 
-        remaining = [], 
+    let worldData,
+        countryByContinent = {},
+        remaining = [],
+        remainingPoolCont = null,
         currentCountry, currentPath, attempts, correctCount = 0;
 
-    // traduções dos continentes do GeoJSON (inglês → português)
-    const contMap = {
-      "South America": "América do Sul",
-      "North America": "América do Norte",
-      "Europe":         "Europa",
-      "Asia":           "Ásia",
-      "Africa":         "África",
-      "Oceania":        "Oceania",
-      // se houver Antártica, etc.
+    // Mapa completo país → continente
+    const countryContinentMap = {
+      "GUATEMALA": "América do Norte", "ISLÂNDIA": "Europa", "EL SALVADOR": "América do Norte",
+      "MÉXICO": "América do Norte", "HONDURAS": "América do Norte", "CANADÁ": "América do Norte",
+      "COSTA RICA": "América do Norte", "ALASCA": "América do Norte", "BELIZE": "América do Norte",
+      "ESTADOS UNIDOS DA AMÉRICA": "América do Norte", "PANAMÁ": "América do Norte", "GROENLÂNDIA": "América do Norte",
+      "ILHAS HAVAÍ": "América do Norte", "NICARÁGUA": "América do Norte", "BAHAMAS": "América do Norte",
+      "CUBA": "América do Norte", "ILHAS CAYMAN": "América do Norte", "JAMAICA": "América do Norte",
+      "HAITI": "América do Norte", "ILHAS TURKS E CAICOS": "América do Norte", "PORTO RICO": "América do Norte",
+      "REPÚBLICA DOMINICANA": "América do Norte", "ILHAS VIRGENS (REINO UNIDO)": "América do Norte",
+      "ILHAS VIRGENS (ESTADOS UNIDOS)": "América do Norte", "SÃO CRISTOVÃO E NEVIS": "América do Norte",
+      "BARBUDA": "América do Norte", "MONTSERRAT": "América do Norte", "ANGUILLA (REINO UNIDO)": "América do Norte",
+      "MARTINICA": "América do Norte", "DOMINICA": "América do Norte", "BARBADOS": "América do Norte",
+      "GRANADA": "América do Norte", "SANTA LÚCIA": "América do Norte", "SÃO VICENTE & GRANADINAS": "América do Norte",
+      "TRINIDAD E TOBAGO": "América do Norte", "VENEZUELA": "América do Sul", "GUIANA": "América do Sul",
+      "SURINAME": "América do Sul", "GUIANA FRANCESA": "América do Sul", "PERU": "América do Sul",
+      "ARGENTINA": "América do Sul", "COLÔMBIA": "América do Sul", "ILHAS GALÁPAGOS (EQUADOR)": "América do Sul",
+      "URUGUAI": "América do Sul", "BRASIL": "América do Sul", "CHILE": "América do Sul",
+      "BOLIVIA": "América do Sul", "PARAGUAI": "América do Sul", "ILHAS MALVINAS (ARGENTINA)": "América do Sul",
+      "ILHA GEÓRGIA DO SUL (REINO UNIDO)": "América do Sul", "ESTONIA": "Europa", "GRÉCIA": "Europa",
+      "LETÔNIA": "Europa", "ALBÂNIA": "Europa", "BELARUS": "Europa", "MONTENEGRO": "Europa",
+      "UCRÂNIA": "Europa", "SÉRVIA": "Europa", "MOLDÁVIA": "Europa", "CROÁCIA": "Europa",
+      "ROMÊNIA": "Europa", "BÓSNIA HEZERGOVÍNIA": "Europa", "TURQUIA": "Europa", "ESLOVÊNIA": "Europa",
+      "BULGÁRIA": "Europa", "HUNGRIA": "Europa", "MACEDÔNIA": "Europa", "ESLOVAQUIA": "Europa",
+      "POLÔNIA": "Europa", "LUXEMBURGO": "Europa", "LIECHTENSTEIN": "Europa", "NORUEGA": "Europa",
+      "ÁUSTRIA": "Europa", "SUÍÇA": "Europa", "HOLANDA": "Europa", "SUÉCIA": "Europa",
+      "BÉLGICA": "Europa", "FINLÂNDIA": "Europa", "ITÁLIA": "Europa", "DINAMARCA": "Europa",
+      "FRANÇA": "Europa", "ALEMANHA": "Europa", "ESPANHA": "Europa", "INGLATERRA": "Europa",
+      "REINO UNIDO": "Europa", "IRLANDA DO NORTE": "Europa", "IRLANDA DO SUL": "Europa",
+      "PORTUGAL": "Europa", "ESCÓCIA": "Europa", "PAÍS DE GALES": "Europa", "ILHAS MADEIRA": "Europa",
+      "MAURITÂNIA": "África", "ILHAS CANÁRIAS": "Europa", "MARROCOS": "África", "MALI": "África",
+      "CABO VERDE": "África", "NÍGER": "África", "ARGÉLIA": "África", "CHADE": "África",
+      "SUDÃO": "África", "TUNÍSIA": "África", "ERITRÉIA": "África", "EGITO": "África",
+      "DJIBUTI": "África", "SAARA OCIDENTAL": "África", "SENEGAL": "África", "GÂMBIA": "África",
+      "NIGÉRIA": "África", "GUINÉ BISSAU": "África", "CAMARÕES": "África", "SERRA LEOA": "África",
+      "REPÚBLICA CENTRO-AFRICANA": "África", "BURKINA FASO": "África", "SUDÃO DO SUL": "África",
+      "COSTA DO MARFIM": "África", "ETIÓPIA": "África", "GANA": "África", "LIBÉRIA": "África",
+      "SOMÁLIA": "África", "TOGO": "África", "GUINÉ EQUATORIAL": "África", "BEIN": "África",
+      "SÃO TOMÉ & PRÍNCIPE": "África", "ÁRFICA DO SUL": "África", "MALAUÍ": "África", "GABÃO": "África",
+      "MOÇAMBIQUE": "África", "CONGO": "África", "SEICHELES": "África", "REPUBLICA DEMOCRÁTICA DO CONGO": "África",
+      "MADGASCAR": "África", "RUANDA": "África", "COMORES": "África", "BURUNDI": "África",
+      "NAMÍBIA": "África", "QUÊNIA": "África", "MAURÍCIO": "África", "LESOTO": "África",
+      "TANZÂNIA": "África", "SUAZILÂNDIA": "África", "ZÂMBIA": "África", "ZIMBÁBUE": "África",
+      "ANGOLA": "África", "BOTSUANA": "África", "RÚSSIA": "Europa", "AFEGANISTÃO": "Ásia",
+      "MONGÓLIA": "Ásia", "CAMBOJA": "Ásia", "CHINA": "Ásia", "VIETNÃ": "Ásia",
+      "CAZAQUISTÃO": "Ásia", "UZBEQUISTÃO": "Ásia", "GEÓRGIA": "Ásia", "QUIRGUISTÃO": "Ásia",
+      "ARMÊNIA": "Ásia", "IRAQUE": "Ásia", "MALDIVAS": "Ásia", "TURCOMENISTÃO": "Ásia",
+      "SÍRIA": "Ásia", "TADJIQUISTÃO": "Ásia", "AZERBAIJÃO": "Ásia", "PAQUISTÃO": "Ásia"
+      // continue adicionando os remanescentes conforme necessário...
     };
 
     function normalize(str) {
-      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return str.normalize('NFD').replace(/[̀-\u036f]/g, '').toLowerCase();
     }
     function getGeoName(f) {
-      return f.properties.NAME ||
-             f.properties.name ||
-             f.properties.ADMIN ||
-             f.properties.ADMIN_PT ||
-             '';
-    }
-    function getGeoContinent(f) {
-      // assume f.properties.CONTINENT em inglês
-      const eng = f.properties.CONTINENT;
-      return contMap[eng] || "Outro";
+      return f.properties.NAME || f.properties.name || f.properties.ADMIN || f.properties.ADMIN_PT || '';
     }
 
-    d3.json('world_ptbr_filtrado.geojson').then(data => {
+    d3.json('world_ptbr_filtered.geojson').then(data => {
       worldData = data;
-      // Monta countryByContinent
-      countryByContinent = { "Todos": [] };
-      worldData.features.forEach(f => {
-        const nome = getGeoName(f);
-        const cont = getGeoContinent(f);
-        // adiciona em Todos
-        countryByContinent["Todos"].push(nome);
-        // adiciona em seu continente
+      countryByContinent = { 'Todos': [] };
+      data.features.forEach(f => {
+        const nome = getGeoName(f).trim();
+        const key = nome.toUpperCase();
+        const cont = countryContinentMap[key] || 'Outro';
         if (!countryByContinent[cont]) countryByContinent[cont] = [];
         countryByContinent[cont].push(nome);
+        countryByContinent['Todos'].push(nome);
       });
-
       initQuiz();
     });
 
     function initQuiz() {
-      document.getElementById('submit').addEventListener('click', handleGuess);
-      document.getElementById('stop').addEventListener('click', stopAnimation);
-      document.getElementById('reveal').addEventListener('click', revealAnswer);
-      document.getElementById('reveal-score').addEventListener('click', showScore);
-      document.getElementById('new-map').addEventListener('click', startQuiz);
-      document.getElementById('continent-select').addEventListener('change', () => {
-        // ao mudar continente, zera placar e recomeça
-        correctCount = 0;
-        document.getElementById('score-display').textContent = '';
-        startQuiz();
+      ['submit','stop','reveal','reveal-score','new-map','continent-select'].forEach(id => {
+        document.getElementById(id === 'continent-select' ? 'continent-select' : id)
+          .addEventListener(id === 'continent-select' ? 'change' : 'click', () => {
+            if (id === 'continent-select') correctCount = 0, document.getElementById('score-display').textContent = '';
+            startQuiz();
+          });
       });
       startQuiz();
     }
@@ -118,59 +145,41 @@
       attempts = 0;
       document.getElementById('guess').value = '';
       document.getElementById('feedback').textContent = '';
-      document.getElementById('reveal-score').disabled = false;
       ['submit','stop','reveal','reveal-score'].forEach(id => document.getElementById(id).disabled = false);
       document.getElementById('new-map').disabled = true;
 
       const cont = document.getElementById('continent-select').value;
       const pool = countryByContinent[cont] || [];
-      if (pool.length === 0) {
+      if (!pool.length) {
         document.getElementById('feedback').textContent = `Nenhum país em "${cont}".`;
         return;
       }
-      // repopula remaining se vazio
-      if (remaining.length === 0 || !remainingPool || remainingPoolCont !== cont) {
-        remaining = pool.slice();
-        remainingPoolCont = cont;
+      if (remainingPoolCont !== cont || !remaining.length) {
+        remaining = pool.slice(); remainingPoolCont = cont;
       }
-      // escolhe aleatório
       const idx = Math.floor(Math.random() * remaining.length);
       currentCountry = remaining.splice(idx,1)[0];
 
       const feat = worldData.features.find(f => normalize(getGeoName(f)) === normalize(currentCountry));
-      if (!feat) {
-        console.error('Não encontrado:', currentCountry);
-        return startQuiz();
-      }
-      zoomFeature(feat);
+      if (!feat) return startQuiz();
+      const b = path.bounds(feat);
+      const dx = b[1][0]-b[0][0], dy = b[1][1]-b[0][1];
+      const x = (b[0][0]+b[1][0])/2, y = (b[0][1]+b[1][1])/2;
+      const scaleVal = Math.min(width/dx, height/dy)*0.8;
+      projection.scale(scaleVal).translate([width/2 - scaleVal*x, height/2 - scaleVal*y]);
       currentPath = svg.append('path').datum(feat).attr('d', path);
 
       const total = currentPath.node().getTotalLength();
-      currentPath
-        .attr('stroke-dasharray', `${total} ${total}`)
-        .attr('stroke-dashoffset', total)
-        .transition().duration(30000).ease(d3.easeLinear)
-        .attr('stroke-dashoffset', 0);
+      currentPath.attr('stroke-dasharray', `${total} ${total}`)
+                 .attr('stroke-dashoffset', total)
+                 .transition().duration(30000).ease(d3.easeLinear)
+                 .attr('stroke-dashoffset', 0);
     }
 
-    function zoomFeature(feature) {
-      const b = path.bounds(feature);
-      const dx = b[1][0]-b[0][0], dy = b[1][1]-b[0][1];
-      const x = (b[0][0]+b[1][0])/2, y = (b[0][1]+b[1][1])/2;
-      const scaleVal = Math.min(width/dx, height/dy)*0.9;
-      projection.scale(scaleVal)
-                .translate([width/2 - scaleVal*x, height/2 - scaleVal*y]);
-    }
-
-    function stopAnimation() {
-      if (currentPath) currentPath.interrupt();
-      document.getElementById('stop').disabled = true;
-    }
-
-    function handleGuess() {
+    document.getElementById('submit').addEventListener('click', () => {
+      attempts++;
       const input = document.getElementById('guess').value.trim();
       if (!input) return;
-      attempts++;
       if (normalize(input) === normalize(currentCountry)) {
         correctCount++;
         document.getElementById('feedback').textContent = `✔️ Correto! É ${currentCountry}.`;
@@ -181,18 +190,23 @@
       } else {
         document.getElementById('feedback').textContent = `❌ Errado (${attempts}/3).`;
       }
-    }
+    });
 
-    function revealAnswer() {
+    document.getElementById('stop').addEventListener('click', () => {
+      if (currentPath) currentPath.interrupt();
+      document.getElementById('stop').disabled = true;
+    });
+
+    document.getElementById('reveal').addEventListener('click', () => {
       if (currentPath) currentPath.interrupt().attr('stroke-dashoffset', 0);
       document.getElementById('feedback').textContent = `🔍 Era: ${currentCountry}.`;
       prepareNext();
-    }
+    });
 
-    function showScore() {
+    document.getElementById('reveal-score').addEventListener('click', () => {
       document.getElementById('score-display').textContent = `🌟 Acertos: ${correctCount}`;
       document.getElementById('reveal-score').disabled = true;
-    }
+    });
 
     function prepareNext() {
       ['submit','stop','reveal'].forEach(id => document.getElementById(id).disabled = true);
