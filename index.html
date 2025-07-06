@@ -259,13 +259,12 @@
       "VANUATU":                          "Oceania",
       "PAPUA NOVA GUINÉ":                "Oceania",
       "KIRIBATI":                         "Oceania"
-    };
+};
 
 function getGeoContinent(f) {
   const nome = getGeoName(f);
   return countryContinentMap[nome] || "Outro";
 }
-
     };
 
     function normalize(str) {
@@ -282,10 +281,12 @@ function getGeoContinent(f) {
         const nome = getGeoName(f).trim();
         const key = nome.toUpperCase();
         const cont = countryContinentMap[key] || 'Outro';
+
         if (!countryByContinent[cont]) countryByContinent[cont] = [];
         countryByContinent[cont].push(nome);
         countryByContinent['Todos'].push(nome);
       });
+
       initQuiz();
     });
 
@@ -296,16 +297,18 @@ function getGeoContinent(f) {
             if (id === 'continent-select') correctCount = 0, document.getElementById('score-display').textContent = '';
             startQuiz();
           });
+
+
+
+
       });
       startQuiz();
     }
-
-    function startQuiz() {
-      projection.scale(1).translate([0,0]);
-      if (currentPath) currentPath.remove();
+@@ -118,59 +145,41 @@
       attempts = 0;
       document.getElementById('guess').value = '';
       document.getElementById('feedback').textContent = '';
+
       ['submit','stop','reveal','reveal-score'].forEach(id => document.getElementById(id).disabled = false);
       document.getElementById('new-map').disabled = true;
 
@@ -317,7 +320,10 @@ function getGeoContinent(f) {
       }
       if (remainingPoolCont !== cont || !remaining.length) {
         remaining = pool.slice(); remainingPoolCont = cont;
+
+
       }
+
       const idx = Math.floor(Math.random() * remaining.length);
       currentCountry = remaining.splice(idx,1)[0];
 
@@ -330,6 +336,7 @@ function getGeoContinent(f) {
       projection.scale(scaleVal).translate([width/2 - scaleVal*x, height/2 - scaleVal*y]);
       currentPath = svg.append('path').datum(feat).attr('d', path);
 
+
       const total = currentPath.node().getTotalLength();
       currentPath.attr('stroke-dasharray', `${total} ${total}`)
                  .attr('stroke-dashoffset', total)
@@ -341,13 +348,11 @@ function getGeoContinent(f) {
       attempts++;
       const input = document.getElementById('guess').value.trim();
       if (!input) return;
+
       if (normalize(input) === normalize(currentCountry)) {
         correctCount++;
         document.getElementById('feedback').textContent = `✔️ Correto! É ${currentCountry}.`;
-        prepareNext();
-      } else if (attempts >= 3) {
-        document.getElementById('feedback').textContent = `❌ Errou 3 vezes. Era: ${currentCountry}.`;
-        prepareNext();
+@@ -181,18 +190,23 @@
       } else {
         document.getElementById('feedback').textContent = `❌ Errado (${attempts}/3).`;
       }
@@ -371,9 +376,9 @@ function getGeoContinent(f) {
 
     function prepareNext() {
       ['submit','stop','reveal'].forEach(id => document.getElementById(id).disabled = true);
-      document.getElementById('new-map').disabled = false;
-      document.getElementById('new-map').focus();
+     document.getElementById('new-map').disabled = false;
+     document.getElementById('new-map').focus();
     }
-  </script>
+ </script>
 </body>
 </html>
