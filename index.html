@@ -114,7 +114,7 @@
       return f.properties.NAME || f.properties.name || f.properties.ADMIN || f.properties.ADMIN_PT || '';
     }
 
-    d3.json('world_ptbr_filtered.geojson').then(data => {
+    d3.json('world_ptbr_filtrado.geojson').then(data => {
       worldData = data;
       countryByContinent = { 'Todos': [] };
       data.features.forEach(f => {
